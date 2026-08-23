@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Redirector{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: ["class", '[data-theme="dark"]'],
+      theme: {
+        extend: {
+          colors: {
+            "error": "var(--error)",
+            "error-container": "var(--error-container)",
+            "on-primary": "var(--on-primary)",
+            "on-error": "var(--on-error)",
+            "surface-container-low": "var(--surface-container-low)",
+            "primary-container": "var(--primary-container)",
+            "outline": "var(--outline)",
+            "surface-bright": "var(--surface-bright)",
+            "secondary-container": "var(--secondary-container)",
+            "surface-container-highest": "var(--surface-container-highest)",
+            "on-secondary-container": "var(--on-secondary-container)",
+            "surface-container": "var(--surface-container)",
+            "on-surface-variant": "var(--on-surface-variant)",
+            "secondary": "var(--secondary)",
+            "primary": "var(--primary)",
+            "on-surface": "var(--on-surface)",
+            "background": "var(--background)",
+            "outline-variant": "var(--outline-variant)",
+            "surface": "var(--surface)",
+            "surface-container-high": "var(--surface-container-high)",
+            "surface-container-lowest": "var(--surface-container-lowest)"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            code: ["Inter", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  </script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <header>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <h1>{% block page_title %}Redirector{% endblock %}</h1>
+      <span id="conn-badge" class="badge">checking...</span>
+      <span id="shopify-api-badge" class="badge shopify-api-badge healthy" title="Shopify API Health & Rate Limit Leaky Bucket Monitor">Shopify API: 🟢 0/40</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:16px;">
+      {% block header_stats %}
+      <div class="stats-tabs">
+        <button class="stat-tab" data-filter="all" onclick="navToFilter('all')" title="Show all broken links in total">
+          <b id="stat-total">0</b> total
+        </button>
+        <button class="stat-tab" data-filter="applied" onclick="navToFilter('applied')" title="Show live applied redirects">
+          <b id="stat-applied">0</b> applied
+        </button>
+        <button class="stat-tab" data-filter="confirmed" onclick="navToFilter('confirmed')" title="Show confirmed redirects ready to apply">
+          <b id="stat-confirmed">0</b> confirmed
+        </button>
+        <button class="stat-tab" data-filter="pending" onclick="navToFilter('pending')" title="Show pending broken links requiring review">
+          <b id="stat-pending">0</b> pending
+        </button>
+      </div>
+      {% endblock %}
+      <nav>
+        <a href="/" class="{% if active_page == 'review' %}active{% endif %}">Review &amp; Apply</a>
+        <a href="/dashboard" class="{% if active_page == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="/automation" class="{% if active_page == 'automation' %}active{% endif %}">Automation</a>
+      </nav>
+      <button id="theme-toggle-btn" class="theme-toggle" onclick="toggleTheme()" title="Toggle Light / Dark Mode">
+        <span class="theme-icon">☀️</span>
+        <span class="theme-label">Light Mode</span>
+      </button>
+    </div>
+  </header>
+
+  {% block content %}{% endblock %}
+
+  <!-- Global Processing Loader Overlay -->
+  <div id="global-loader" class="loader-overlay" style="display:none;">
+    <div class="loader-card">
+      <div class="spinner-ring"></div>
+      <h3 id="loader-title">Processing Request...</h3>
+      <p id="loader-subtitle">Please wait while the operation completes.</p>
+      
+      <div id="loader-progress-box" class="loader-progress-box" style="display:none;">
+        <div class="progress-bar-track">
+          <div id="loader-progress-fill" class="progress-bar-fill" style="width:0%;"></div>
+        </div>
+        <div class="progress-bar-meta">
+          <span id="loader-percent" style="font-weight:700; color:var(--accent);">0%</span>
+          <span id="loader-eta">Estimating time...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.APP_SECRET = "{{ app_secret }}";
+
+    function updateThemeUI(theme) {
+      const btn = document.getElementById('theme-toggle-btn');
+      if (!btn) return;
+      if (theme === 'light') {
+        btn.innerHTML = '<span class="theme-icon">🌙</span><span class="theme-label">Dark Mode</span>';
+      } else {
+        btn.innerHTML = '<span class="theme-icon">☀️</span><span class="theme-label">Light Mode</span>';
+      }
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      localStorage.setItem('theme', newTheme);
+      updateThemeUI(newTheme);
+    }
+
+    function navToFilter(filterVal) {
+      if (window.location.pathname !== '/' && window.location.pathname !== '') {
+        window.location.href = '/?filter=' + filterVal;
+        return;
+      }
+      if (typeof setFilterTab === 'function') {
+        setFilterTab(filterVal);
+      }
+    }
+
+    async function loadHeaderStats() {
+      try {
+        const res = await fetch('/api/state');
+        const data = await res.json();
+        if (data && data.matches) {
+          const counts = { total: data.matches.length, applied: 0, confirmed: 0, pending: 0 };
+          data.matches.forEach(m => {
+            if (m.status === 'applied') counts.applied++;
+            else if (m.status === 'confirmed') counts.confirmed++;
+            else if (m.status === 'pending') counts.pending++;
+          });
+          const elTotal = document.getElementById('stat-total');
+          const elApplied = document.getElementById('stat-applied');
+          const elConfirmed = document.getElementById('stat-confirmed');
+          const elPending = document.getElementById('stat-pending');
+          if (elTotal) elTotal.textContent = counts.total;
+          if (elApplied) elApplied.textContent = counts.applied;
+          if (elConfirmed) elConfirmed.textContent = counts.confirmed;
+          if (elPending) elPending.textContent = counts.pending;
+
+          const apiBadge = document.getElementById('shopify-api-badge');
+          if (apiBadge && data.shopify_health) {
+            const h = data.shopify_health;
+            if (h.status === 'rate_limited') {
+              apiBadge.className = 'badge shopify-api-badge rate-limited';
+              apiBadge.textContent = `Shopify API: 🔴 Rate Limited (${h.last_code})`;
+              apiBadge.title = `${h.message} — Auto backoff retry active`;
+            } else if (h.status === 'throttled') {
+              apiBadge.className = 'badge shopify-api-badge throttled';
+              apiBadge.textContent = `Shopify API: 🟡 ${h.call_limit || 'Throttled'}`;
+              apiBadge.title = `${h.message} — Bucket near capacity`;
+            } else if (h.status === 'error') {
+              apiBadge.className = 'badge shopify-api-badge error';
+              apiBadge.textContent = `Shopify API: ⚠️ Auth Error`;
+              apiBadge.title = h.message;
+            } else {
+              apiBadge.className = 'badge shopify-api-badge healthy';
+              apiBadge.textContent = `Shopify API: 🟢 ${h.call_limit || '0/40'}`;
+              apiBadge.title = `Shopify API Healthy (${h.call_limit || '0/40'} bucket used)`;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      updateThemeUI(currentTheme);
+      loadHeaderStats();
+    });
+
+    function escapeHtml(s) {
+      return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    window.showAppToast = function showAppToast(message, type = 'success', title = '') {
+      let container = document.getElementById('toast-popup-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-popup-container';
+        container.className = 'toast-popup-container';
+        document.body.appendChild(container);
+      }
+
+      let icon = '✓';
+      let cardClass = 'toast-popup-card';
+      const msgLower = (message || '').toLowerCase();
+      const typeLower = (type || '').toLowerCase();
+
+      if (typeLower === 'error' || msgLower.includes('fail') || msgLower.includes('error')) {
+        icon = '⚠️';
+        cardClass += ' error';
+      } else if (typeLower === 'ignored' || msgLower.includes('ignored')) {
+        icon = '🚫';
+        cardClass += ' ignored';
+      } else if (typeLower === 'confirmed' || msgLower.includes('confirmed')) {
+        icon = '👍';
+        cardClass += ' confirmed';
+      } else if (typeLower === 'info' || msgLower.includes('skipped')) {
+        icon = '💡';
+        cardClass += ' info';
+      }
+
+      const toast = document.createElement('div');
+      toast.className = cardClass;
+      toast.innerHTML = `
+        <span class="toast-popup-icon">${icon}</span>
+        <div style="display:flex; flex-direction:column;">
+          ${title ? `<strong style="font-size:12px; margin-bottom:2px;">${escapeHtml(title)}</strong>` : ''}
+          <span>${escapeHtml(message || 'Operation completed')}</span>
+        </div>
+      `;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.add('show');
+      });
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+        setTimeout(() => {
+          if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+          }
+        }, 400);
+      }, 3000);
+    };
+
+    window.showAppliedToast = window.showAppToast;
+
+    window.showAppConfirm = function showAppConfirm(options) {
+      return new Promise((resolve) => {
+        const title = options.title || 'Confirm Action';
+        const message = options.message || 'Are you sure you want to proceed?';
+        const confirmText = options.confirmText || 'Confirm';
+        const cancelText = options.cancelText || 'Cancel';
+        const isDanger = options.isDanger || false;
+
+        let modalOverlay = document.getElementById('app-confirm-modal');
+        if (modalOverlay) {
+          modalOverlay.remove();
+        }
+
+        modalOverlay = document.createElement('div');
+        modalOverlay.id = 'app-confirm-modal';
+        modalOverlay.className = 'loader-overlay';
+        modalOverlay.innerHTML = `
+          <div class="loader-card confirm-dialog-card">
+            <div class="confirm-dialog-icon">${isDanger ? '⚠️' : '❓'}</div>
+            <h3>${escapeHtml(title)}</h3>
+            <p>${escapeHtml(message)}</p>
+            <div class="confirm-dialog-actions">
+              <button id="confirm-modal-cancel" class="secondary">${escapeHtml(cancelText)}</button>
+              <button id="confirm-modal-ok" class="${isDanger ? 'danger-btn' : 'primary'}">${escapeHtml(confirmText)}</button>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(modalOverlay);
+        modalOverlay.style.display = 'flex';
+
+        const cleanup = (result) => {
+          modalOverlay.style.display = 'none';
+          modalOverlay.remove();
+          resolve(result);
+        };
+
+        document.getElementById('confirm-modal-ok').onclick = () => cleanup(true);
+        document.getElementById('confirm-modal-cancel').onclick = () => cleanup(false);
+      });
+    };
+
+    function showLoader(title, subtitle, showProgress = false) {
+      const loader = document.getElementById('global-loader');
+      if (!loader) return;
+      document.getElementById('loader-title').textContent = title || 'Processing Request...';
+      document.getElementById('loader-subtitle').textContent = subtitle || 'Please wait while the operation completes.';
+      
+      const pBox = document.getElementById('loader-progress-box');
+      const pFill = document.getElementById('loader-progress-fill');
+      const pPercent = document.getElementById('loader-percent');
+      const pEta = document.getElementById('loader-eta');
+
+      if (pBox) pBox.style.display = showProgress ? 'block' : 'none';
+      if (pFill) pFill.style.width = '0%';
+      if (pPercent) pPercent.textContent = '0%';
+      if (pEta) pEta.textContent = 'Estimating time...';
+
+      loader.style.display = 'flex';
+    }
+
+    function formatEta(seconds) {
+      if (!seconds || seconds <= 0) return 'Finalizing...';
+      if (seconds < 60) {
+        return `Est. ~${seconds}s remaining`;
+      }
+      const mins = Math.floor(seconds / 60);
+      const remSec = seconds % 60;
+      if (remSec === 0) {
+        return `Est. ~${mins} min${mins > 1 ? 's' : ''} remaining`;
+      }
+      return `Est. ~${mins}m ${remSec}s remaining`;
+    }
+    window.formatEta = formatEta;
+
+    function updateLoaderProgress(percent, subtitleText = null, etaText = null) {
+      const pBox = document.getElementById('loader-progress-box');
+      const pFill = document.getElementById('loader-progress-fill');
+      const pPercent = document.getElementById('loader-percent');
+      const pEta = document.getElementById('loader-eta');
+      const s = document.getElementById('loader-subtitle');
+
+      if (pBox) pBox.style.display = 'block';
+      const clamp = Math.min(100, Math.max(0, Math.round(percent)));
+      if (pFill) pFill.style.width = clamp + '%';
+      if (pPercent) pPercent.textContent = clamp + '%';
+      if (subtitleText && s) s.textContent = subtitleText;
+      if (etaText && pEta) {
+        pEta.textContent = (typeof etaText === 'number') ? formatEta(etaText) : etaText;
+      }
+    }
+
+    function hideLoader() {
+      const loader = document.getElementById('global-loader');
+      if (loader) loader.style.display = 'none';
+    }
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

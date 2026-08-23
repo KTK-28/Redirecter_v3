@@ -1,0 +1,47 @@
+# Environment & Secrets (DO NOT COMMIT)
+.env
+.env.local
+.env.*
+!.env.example
+config.json
+token_cache.json
+*.pem
+*.key
+
+# Database & Token Cache Directory
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded Files & Generated Workspace Data
+matches.json
+patterns.json
+watchlist.json
+products.json
+*.csv
+*.xlsx
+*.xls
+*.txt
+*.log
+
+# Python Virtualenv & Bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+
+# Temporary / Scratch Files
+scratch/
+stitch_f1.html
+stitch_f2.html
+stitch_f3.html
+
+# IDE & OS Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

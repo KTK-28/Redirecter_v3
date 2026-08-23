@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Automation &amp; Watchlist - Redirector 301{% endblock %}
+{% block page_title %}Redirector 301 — Automation &amp; Watchlist{% endblock %}
+
+{% block content %}
+<main class="max-w-[1240px] w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
+  <div>
+    <h1 class="font-display text-2xl font-bold text-on-surface">Automation &amp; Wildcard Rules</h1>
+    <p class="font-body-md text-xs text-on-surface-variant mt-1">Configure automated pattern redirection rules and monitor key storefront URLs for broken links.</p>
+  </div>
+
+  <!-- Wildcard Pattern Rule Builder Bento Card -->
+  <div class="bg-surface border border-outline-variant rounded-2xl p-5 shadow-sm flex flex-col gap-4">
+    <div class="border-b border-outline-variant pb-3">
+      <h2 class="text-sm font-bold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-[20px]">alt_route</span>
+        Redirect Pattern Rules Builder
+      </h2>
+      <p class="text-xs text-on-surface-variant mt-1">Use <code class="bg-surface-container-high px-1 py-0.5 rounded text-primary font-bold">*</code> as a wildcard. Example: from <code class="bg-surface-container-high px-1 py-0.5 rounded text-on-surface">/collections/old-summer-*</code> to <code class="bg-surface-container-high px-1 py-0.5 rounded text-on-surface">/collections/summer-2026/$1</code> fixes every URL under that collection in one rule.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="text-xs font-bold text-on-surface-variant block mb-1">From Pattern (broken URL shape)</label>
+        <input type="text" id="pat-from" placeholder="/collections/old-summer-*" class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface rounded-xl px-3 py-2 text-xs font-medium focus:border-primary outline-none">
+      </div>
+      <div>
+        <label class="text-xs font-bold text-on-surface-variant block mb-1">To Template ($1, $2... insert captured parts)</label>
+        <input type="text" id="pat-to" placeholder="/collections/summer-2026/$1" class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface rounded-xl px-3 py-2 text-xs font-medium focus:border-primary outline-none">
+      </div>
+    </div>
+
+    <div class="flex justify-end">
+      <button class="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-on-primary rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-sm active:scale-95" onclick="addPattern()">
+        <span class="material-symbols-outlined text-[18px]">add_circle</span>
+        Save Pattern Rule
+      </button>
+    </div>
+  </div>
+
+  <!-- Active Pattern Rules Table Card -->
+  <div class="bg-surface border border-outline-variant rounded-2xl p-5 shadow-sm flex flex-col gap-4">
+    <div class="border-b border-outline-variant pb-3">
+      <h2 class="text-sm font-bold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-[20px]">rule</span>
+        Active Pattern Rules
+      </h2>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-surface-container-low text-on-surface-variant uppercase text-[10px] font-bold tracking-wider border-b border-outline-variant">
+          <tr>
+            <th class="p-3">From</th>
+            <th class="p-3">To template</th>
+            <th class="p-3">Status</th>
+            <th class="p-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="patterns-list" class="divide-y divide-outline-variant/60"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 404 Watchlist & Sitemap Importer Bento Card -->
+  <div class="bg-surface border border-outline-variant rounded-2xl p-5 shadow-sm flex flex-col gap-4">
+    <div class="border-b border-outline-variant pb-3">
+      <h2 class="text-sm font-bold text-on-surface flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary text-[20px]">radar</span>
+        404 Watchlist &amp; Sitemap Monitor
+      </h2>
+      <p class="text-xs text-on-surface-variant mt-1">URLs in this watchlist are monitored automatically in the background. Any URL returning a 404 is queued for matching immediately.</p>
+    </div>
+
+    <div class="flex flex-col md:flex-row gap-3">
+      <input type="text" id="watch-input" placeholder="https://yourstore.com/pages/about-us" class="flex-1 bg-surface-container-lowest border border-outline-variant text-on-surface rounded-xl px-3.5 py-2 text-xs font-medium focus:border-primary outline-none">
+      <button class="flex items-center gap-1.5 px-4 py-2 bg-primary text-on-primary rounded-xl text-xs font-bold hover:bg-primary/90 transition-all active:scale-95 shadow-sm" onclick="addWatchlist()">
+        <span class="material-symbols-outlined text-[18px]">add</span>
+        Add to Watchlist
+      </button>
+    </div>
+
+    <div class="flex flex-col md:flex-row gap-3">
+      <input type="text" id="sitemap-input" placeholder="https://yourstore.com/sitemap.xml" class="flex-1 bg-surface-container-lowest border border-outline-variant text-on-surface rounded-xl px-3.5 py-2 text-xs font-medium focus:border-primary outline-none">
+      <button class="flex items-center gap-1.5 px-4 py-2 border border-outline-variant text-primary rounded-xl text-xs font-bold hover:bg-surface-container-low transition-all bg-surface-container-lowest shadow-sm" onclick="importSitemap()">
+        <span class="material-symbols-outlined text-[18px]">cloud_download</span>
+        Import sitemap.xml
+      </button>
+      <button class="flex items-center gap-1.5 px-4 py-2 border border-outline-variant text-on-surface-variant rounded-xl text-xs font-bold hover:bg-surface-container-low transition-all bg-surface-container-lowest shadow-sm" onclick="scanWatchlistNow()">
+        <span class="material-symbols-outlined text-[18px]">search</span>
+        Scan Watchlist Now
+      </button>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-surface-container-low text-on-surface-variant uppercase text-[10px] font-bold tracking-wider border-b border-outline-variant">
+          <tr>
+            <th class="p-3">Monitored URL</th>
+            <th class="p-3">Last status</th>
+            <th class="p-3">Last checked</th>
+          </tr>
+        </thead>
+        <tbody id="watchlist-rows" class="divide-y divide-outline-variant/60"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/automation.js') }}"></script>
+{% endblock %}
